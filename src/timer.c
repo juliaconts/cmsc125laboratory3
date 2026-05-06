@@ -15,12 +15,20 @@ bool simulation_running = true;
 // Timer thread increments clock every TICK_INTERVAL_MS
 void *timer_thread(void *arg)
 {
-    while (simulation_running)
+    while (1)
     {
-        pthread_mutex_lock(&tick_lock);
         usleep(TICK_INTERVAL_MS * 1000); // Sleep to simulate a tick
+        pthread_mutex_lock(&tick_lock);
+
+        if (!simulation_running)
+        {
+            pthread_cond_broadcast(&tick_changed); // Wake waiting
+            pthread_mutex_unlock(&tick_lock);
+            break;
+        }
+
         global_tick++;
-        pthread_cond_broadcast(&tick_changed); // Wake waiting
+        pthread_cond_broadcast(&tick_changed);
         pthread_mutex_unlock(&tick_lock);
     }
     return NULL;
@@ -30,7 +38,7 @@ void *timer_thread(void *arg)
 void wait_until_tick(int target_tick)
 {
     pthread_mutex_lock(&tick_lock);
-    while (global_tick < target_tick)
+    while (global_tick < target_tick && simulation_running)
     {
         pthread_cond_wait(&tick_changed, &tick_lock);
     }

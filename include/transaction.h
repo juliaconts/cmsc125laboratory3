@@ -43,4 +43,12 @@ typedef struct
     TxStatus status;
 } Transaction;
 
+typedef struct
+{
+    Transaction *tx;
+} ThreadArg;
+
+void *transaction_runner(void *arg);
+void execute_transaction(Transaction *tx);
+
 #endif

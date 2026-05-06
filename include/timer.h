@@ -5,10 +5,10 @@
 #include <stdbool.h>
 
 // Global clock
-extern volatile int global_tick;
-extern pthread_mutex_t tick_lock;
-extern pthread_cond_t tick_changed;
-extern bool simulation_running;
+volatile int global_tick = 0;
+pthread_mutex_t tick_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t tick_changed = PTHREAD_COND_INITIALIZER;
+bool simulation_running = true;
 
 // Functions
 void *timer_thread(void *arg);
