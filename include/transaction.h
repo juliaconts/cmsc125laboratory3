@@ -1,3 +1,8 @@
+#ifndef TRANSACTION_H
+#define TRANSACTION_H
+
+#include <pthread.h>
+
 typedef enum
 {
     OP_DEPOSIT,  // Add money to account
@@ -37,3 +42,5 @@ typedef struct
     // Status
     TxStatus status;
 } Transaction;
+
+#endif
