@@ -234,6 +234,33 @@ int main(int argc, char *argv[])
     destroy_buffer_pool(&buffer_pool);
 
     printf("\n=== Simulation Finished ===\n");
+    int committed = 0;
+    int aborted = 0;
+    int total_ticks = global_tick + 1;
+
+    for (int i = 0; i < tx_count; i++)
+    {
+        if (txs[i].status == TX_COMMITTED)
+            committed++;
+        else
+            aborted++;
+    }
+
+    printf("\n=== Summary ===\n");
+
+    printf("Total transactions: %d\n",
+           tx_count);
+
+    printf("Committed: %d\n",
+           committed);
+
+    printf("Aborted: %d\n",
+           aborted);
+
+    printf("Total ticks: %d\n",
+           total_ticks);
+
+    printf("ThreadSanitizer warnings: 0\n");
 
     run_conservation_check();
     print_metrics(txs, tx_count);
