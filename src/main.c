@@ -62,7 +62,7 @@ int load_accounts(const char *filename)
 
     pthread_mutex_lock(&bank.bank_lock);
 
-    // Initialize all accounts
+    // initialize all accounts
     for (int i = 0; i < MAX_ACCOUNTS; i++)
     {
         bank.accounts[i].account_id = i;
@@ -76,15 +76,17 @@ int load_accounts(const char *filename)
 
     while (fgets(line, sizeof(line), fp))
     {
-        // Skip comments and blank lines
+        // skip comments or blank lines
         if (line[0] == '#' || line[0] == '\n')
             continue;
 
-        int id, balance;
+        int id;
+        int balance;
 
         if (sscanf(line, "%d %d", &id, &balance) == 2)
         {
             bank.accounts[id].balance_centavos = balance;
+
             bank.num_accounts++;
 
             printf("Loaded account %d with balance %d\n",

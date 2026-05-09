@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include "lock_mgr.h"
 #include "bank.h"
 #include "timer.h"
@@ -27,6 +28,10 @@ int transfer(int from_id, int to_id, int amount_centavos)
     pthread_mutex_unlock(&tick_lock);
 
     pthread_rwlock_wrlock(&acc_first->lock);
+
+    // simulate contention
+    usleep(120000);
+
     pthread_rwlock_wrlock(&acc_second->lock);
 
     pthread_mutex_lock(&tick_lock);
