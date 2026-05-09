@@ -7,12 +7,17 @@
 #include "transaction.h"
 #include "timer.h"
 #include "buffer_pool.h"
+#include "metrics.h"
+#include "utils.h"
 
 // External globals (defined in other modules)
 extern Bank bank;
 extern BufferPool buffer_pool;
+extern AppConfig config;
 
 // Thread function (from transaction.c)
+Transaction txs[256]; // global array to hold transactions
+int tx_count = 0;
 void *transaction_runner(void *arg);
 
 // CLI parser
@@ -48,34 +53,55 @@ void parse_args(int argc, char *argv[])
 int load_accounts(const char *filename)
 {
     FILE *fp = fopen(filename, "r");
+
     if (!fp)
     {
         perror("accounts.txt");
         return -1;
     }
 
-    int id, balance;
-
     pthread_mutex_lock(&bank.bank_lock);
+
+    // Initialize all accounts
+    for (int i = 0; i < MAX_ACCOUNTS; i++)
+    {
+        bank.accounts[i].account_id = i;
+        bank.accounts[i].balance_centavos = 0;
+        pthread_rwlock_init(&bank.accounts[i].lock, NULL);
+    }
 
     bank.num_accounts = 0;
 
-    while (fscanf(fp, "%d %d", &id, &balance) == 2)
-    {
-        bank.accounts[id].account_id = id;
-        bank.accounts[id].balance_centavos = balance;
-        pthread_rwlock_init(&bank.accounts[id].lock, NULL);
+    char line[256];
 
-        bank.num_accounts++;
+    while (fgets(line, sizeof(line), fp))
+    {
+        // Skip comments and blank lines
+        if (line[0] == '#' || line[0] == '\n')
+            continue;
+
+        int id, balance;
+
+        if (sscanf(line, "%d %d", &id, &balance) == 2)
+        {
+            bank.accounts[id].balance_centavos = balance;
+            bank.num_accounts++;
+
+            printf("Loaded account %d with balance %d\n",
+                   id,
+                   balance);
+        }
     }
 
     pthread_mutex_unlock(&bank.bank_lock);
+
     fclose(fp);
 
     return 0;
 }
 
 // Parse trace.txt
+// Modified transaction format
 // Format:
 // TxID StartTick OP Acc Amount Target
 int load_transactions(const char *filename, Transaction *txs, int *count)
@@ -87,35 +113,70 @@ int load_transactions(const char *filename, Transaction *txs, int *count)
         return -1;
     }
 
-    char op[20];
-    int id, start, acc, amt, target;
-
+    char line[256];
     *count = 0;
 
-    while (fscanf(fp, "%d %d %s %d %d %d",
-                  &id, &start, op, &acc, &amt, &target) >= 4)
+    while (fgets(line, sizeof(line), fp))
     {
+        if (line[0] == '#' || line[0] == '\n')
+            continue;
+
+        char txname[20];
+        char op[20];
+
+        int start;
+        int acc;
+        int amt = 0;
+        int target = -1;
+
+        int fields = sscanf(line,
+                            "%s %d %s %d %d %d",
+                            txname,
+                            &start,
+                            op,
+                            &acc,
+                            &target,
+                            &amt);
+
+        if (fields < 4)
+        {
+            continue;
+        }
+
         Transaction *tx = &txs[*count];
 
-        tx->tx_id = id;
+        tx->tx_id = atoi(txname + 1);
         tx->start_tick = start;
         tx->num_ops = 1;
+        tx->wait_ticks = 0;
         tx->status = TX_RUNNING;
 
         Operation *o = &tx->ops[0];
 
         if (strcmp(op, "DEPOSIT") == 0)
+        {
             o->type = OP_DEPOSIT;
+            o->account_id = acc;
+            o->amount_centavos = target;
+        }
         else if (strcmp(op, "WITHDRAW") == 0)
+        {
             o->type = OP_WITHDRAW;
+            o->account_id = acc;
+            o->amount_centavos = target;
+        }
         else if (strcmp(op, "TRANSFER") == 0)
+        {
             o->type = OP_TRANSFER;
-        else
+            o->account_id = acc;
+            o->target_account = target;
+            o->amount_centavos = amt;
+        }
+        else if (strcmp(op, "BALANCE") == 0)
+        {
             o->type = OP_BALANCE;
-
-        o->account_id = acc;
-        o->amount_centavos = amt;
-        o->target_account = target;
+            o->account_id = acc;
+        }
 
         (*count)++;
     }
@@ -128,13 +189,15 @@ int load_transactions(const char *filename, Transaction *txs, int *count)
 int main(int argc, char *argv[])
 {
     parse_args(argc, argv);
+    extern int tick_interval_ms;
+    tick_interval_ms = config.tick_ms;
 
     // init bank
     pthread_mutex_init(&bank.bank_lock, NULL);
 
     // load data
     load_accounts(config.accounts_file);
-    load_transactions(config.trace_file);
+    load_transactions(config.trace_file, txs, &tx_count);
 
     // buffer init
     init_buffer_pool(&buffer_pool);
@@ -169,6 +232,9 @@ int main(int argc, char *argv[])
     destroy_buffer_pool(&buffer_pool);
 
     printf("\n=== Simulation Finished ===\n");
+
+    run_conservation_check();
+    print_metrics(txs, tx_count);
 
     return 0;
 }
