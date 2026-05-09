@@ -21,6 +21,12 @@ typedef struct
     sem_t empty_slots;
     sem_t full_slots;
     pthread_mutex_t pool_lock;
+
+    // Statistics
+    int total_loads;
+    int total_unloads;
+    int peak_usage;
+    int blocked_operations;
 } BufferPool;
 
 void init_buffer_pool(BufferPool *pool);
@@ -28,6 +34,7 @@ void destroy_buffer_pool(BufferPool *pool);
 
 void load_account(BufferPool *pool, int account_id);
 void unload_account(BufferPool *pool, int account_id);
+void print_buffer_pool_report(BufferPool *pool);
 
 // helper for transaction loop
 Account *get_account_from_buffer(BufferPool *pool, int account_id, int auto_load);

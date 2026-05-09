@@ -264,6 +264,7 @@ int main(int argc, char *argv[])
 
     run_conservation_check();
     print_metrics(txs, tx_count);
+    print_buffer_pool_report(&buffer_pool);
 
     return 0;
 }
