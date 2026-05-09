@@ -8,8 +8,8 @@
 
 typedef struct
 {
-    int account_id;        
-    int balance_centavos;  
+    int account_id;
+    int balance_centavos;
     pthread_rwlock_t lock; // per-account lock to allow multiple readers
     char padding[64];      // cache line padding to prevent false sharing
 } Account;
@@ -17,7 +17,7 @@ typedef struct
 typedef struct
 {
     Account accounts[MAX_ACCOUNTS];
-    int num_accounts;          
+    int num_accounts;
     pthread_mutex_t bank_lock; // protects the whole bank during setup and audit
 } Bank;
 

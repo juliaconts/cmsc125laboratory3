@@ -1,14 +1,23 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -g -Iinclude -pthread
 
+CFLAGS = -Wall -Wextra -g -Iinclude -pthread -std=gnu11
 DEBUG_FLAGS = -fsanitize=thread -fno-omit-frame-pointer
 
-# All source files to be compiled
-SRCS = src/main.c src/bank.c src/transaction.c src/buffer.c src/deadlock.c src/timer.c src/parser.c src/utils.c
-OBJS = $(SRCS:.c=.o)
 EXEC = bankdb
 
-# all: Compile the simulator 
+SRCS = \
+src/main.c \
+src/bank.c \
+src/transaction.c \
+src/timer.c \
+src/lock_mgr.c \
+src/buffer_pool.c \
+src/metrics.c \
+src/utils.c
+
+OBJS = $(SRCS:.c=.o)
+
+# Default build
 all: $(EXEC)
 
 $(EXEC): $(OBJS)
@@ -17,17 +26,17 @@ $(EXEC): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# debug build (thread sanitizer)
+# ThreadSanitizer build
 debug: CFLAGS += $(DEBUG_FLAGS)
 debug: clean $(EXEC)
 
-# run example
+# Run sample
 run: $(EXEC)
 	./$(EXEC) --accounts=accounts.txt --trace=trace.txt --deadlock=prevention
 
-# clean: Remove binaries and object files 
+# Clean build files
 clean:
 	rm -f $(OBJS) $(EXEC)
 
-# full rebuild
+# Full rebuild
 rebuild: clean all
