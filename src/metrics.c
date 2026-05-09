@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "metrics.h"
 #include "bank.h"
+#include "timer.h"
 
 void run_conservation_check()
 {
@@ -11,26 +12,55 @@ void run_conservation_check()
 
 void print_metrics(Transaction *txs, int count)
 {
-    int committed = 0, aborted = 0;
-    float avg_wait = 0;
+    int committed = 0;
+    int aborted = 0;
 
-    printf("\n--- Transaction Report ---\n");
-    printf("ID\tStatus\t\tStart\tEnd\tWait (Ticks)\n");
+    int total_wait = 0;
+
+    printf("\n=== Transaction Performance Metrics ===\n");
+
+    printf("TxID | StartTick | ActualStart | End | WaitTicks | Status\n");
+    printf("-----|-----------|-------------|-----|-----------|----------\n");
+
     for (int i = 0; i < count; i++)
     {
-        if (txs[i].status == TX_COMMITTED)
+        Transaction *tx = &txs[i];
+
+        total_wait += tx->wait_ticks;
+
+        if (tx->status == TX_COMMITTED)
             committed++;
         else
             aborted++;
 
-        avg_wait += txs[i].wait_ticks;
-
-        printf("%d\t%s\t%d\t%d\t%d\n",
-               txs[i].tx_id,
-               (txs[i].status == TX_COMMITTED ? "COMMITTED" : "ABORTED"),
-               txs[i].actual_start, txs[i].actual_end, txs[i].wait_ticks);
+        printf("T%-3d | %9d | %11d | %3d | %9d | %s\n",
+               tx->tx_id,
+               tx->start_tick,
+               tx->actual_start,
+               tx->actual_end,
+               tx->wait_ticks,
+               (tx->status == TX_COMMITTED)
+                   ? "COMMITTED"
+                   : "ABORTED");
     }
 
-    printf("\nSummary:\nCommits: %d\nAborts: %d\nAvg Lock Wait: %.2f ticks\n",
-           committed, aborted, avg_wait / count);
+    float avg_wait = 0.0f;
+
+    if (count > 0)
+        avg_wait = (float)total_wait / count;
+
+    int total_ticks = global_tick + 1;
+
+    float throughput = 0.0f;
+
+    if (total_ticks > 0)
+        throughput = (float)count / total_ticks;
+
+    printf("\nAverage wait time: %.1f ticks\n",
+           avg_wait);
+
+    printf("Throughput: %d transactions / %d ticks = %.2f tx/tick\n",
+           count,
+           total_ticks,
+           throughput);
 }
