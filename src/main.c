@@ -206,7 +206,7 @@ int main(int argc, char *argv[])
     pthread_t timer;
     pthread_create(&timer, NULL, timer_thread, NULL);
 
-    printf("=== Banking System Execution Log ===\n");
+    printf("\n=== Banking System Execution Log ===\n");
     printf("Timer thread started (tick interval: %dms)\n\n", config.tick_ms);
 
     // spawn transaction threads
