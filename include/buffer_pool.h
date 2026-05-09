@@ -4,10 +4,9 @@
 #include <stdbool.h>
 #include <semaphore.h>
 #include <pthread.h>
+#include "bank.h"
 
 #define BUFFER_POOL_SIZE 5
-
-typedef struct Account Account; // Forward declaration to avoid circular dependency
 
 typedef struct
 {
@@ -24,11 +23,13 @@ typedef struct
     pthread_mutex_t pool_lock;
 } BufferPool;
 
-// API
 void init_buffer_pool(BufferPool *pool);
 void destroy_buffer_pool(BufferPool *pool);
 
 void load_account(BufferPool *pool, int account_id);
 void unload_account(BufferPool *pool, int account_id);
+
+// helper for transaction loop
+Account *get_account_from_buffer(BufferPool *pool, int account_id, int auto_load);
 
 #endif

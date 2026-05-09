@@ -1,11 +1,12 @@
 #include "buffer_pool.h"
-#include "bank.h"
 #include <string.h>
 #include <stdio.h>
 
-// Initialize buffer pool
+extern Bank bank;
+
 void init_buffer_pool(BufferPool *pool)
 {
+    // 5 empty chairs, 0 taken initially
     sem_init(&pool->empty_slots, 0, BUFFER_POOL_SIZE);
     sem_init(&pool->full_slots, 0, 0);
     pthread_mutex_init(&pool->pool_lock, NULL);
@@ -18,14 +19,16 @@ void init_buffer_pool(BufferPool *pool)
     }
 }
 
-// Load account into buffer (producer)
+// pull account from disk into the pool (producer)
 void load_account(BufferPool *pool, int account_id)
 {
-    sem_wait(&pool->empty_slots); // Wait for empty slot
+    // wait for an empty chair. blocks here if pool is full.
+    sem_wait(&pool->empty_slots); 
 
+    // lock the array so threads don't fight over the same slot
     pthread_mutex_lock(&pool->pool_lock);
 
-    // Find empty slot and load account
+    // find empty slot and take it
     for (int i = 0; i < BUFFER_POOL_SIZE; i++)
     {
         if (!pool->slots[i].in_use)
@@ -39,34 +42,35 @@ void load_account(BufferPool *pool, int account_id)
 
     pthread_mutex_unlock(&pool->pool_lock);
 
-    sem_post(&pool->full_slots); // Signal slot is full
+    // signal that a slot is now full
+    sem_post(&pool->full_slots); 
 }
 
-// Unload account from buffer pool (consumer)
+// kick account out of the pool (consumer)
 void unload_account(BufferPool *pool, int account_id)
 {
-    sem_wait(&pool->full_slots); // Wait for full slot
+    // wait for a full slot to empty out
+    sem_wait(&pool->full_slots); 
 
     pthread_mutex_lock(&pool->pool_lock);
 
-    // Find and unload account
+    // find it and free it
     for (int i = 0; i < BUFFER_POOL_SIZE; i++)
     {
-        if (pool->slots[i].in_use &&
-            pool->slots[i].account_id == account_id)
+        if (pool->slots[i].in_use && pool->slots[i].account_id == account_id)
         {
             pool->slots[i].in_use = false;
             pool->slots[i].account_id = -1;
-            break;
+            break; 
         }
     }
 
     pthread_mutex_unlock(&pool->pool_lock);
 
-    sem_post(&pool->empty_slots); // Signal slot is empty
+    // signal that we freed up a chair
+    sem_post(&pool->empty_slots); 
 }
 
-// Destroy buffer pool
 void destroy_buffer_pool(BufferPool *pool)
 {
     sem_destroy(&pool->empty_slots);
@@ -74,18 +78,17 @@ void destroy_buffer_pool(BufferPool *pool)
     pthread_mutex_destroy(&pool->pool_lock);
 }
 
-// Helper function (lazy-load strategy)
+// smart helper: loads it only if it isn't already chilling in the pool
 Account *get_account_from_buffer(BufferPool *pool, int account_id, int auto_load)
 {
     Account *result = NULL;
 
     pthread_mutex_lock(&pool->pool_lock);
 
-    // 1. Check if already in buffer
+    // check if it's already there
     for (int i = 0; i < BUFFER_POOL_SIZE; i++)
     {
-        if (pool->slots[i].in_use &&
-            pool->slots[i].account_id == account_id)
+        if (pool->slots[i].in_use && pool->slots[i].account_id == account_id)
         {
             result = pool->slots[i].data;
             break;
@@ -94,7 +97,7 @@ Account *get_account_from_buffer(BufferPool *pool, int account_id, int auto_load
 
     pthread_mutex_unlock(&pool->pool_lock);
 
-    // 2. Lazy load if not found
+    // lazy load if not found
     if (!result && auto_load)
     {
         load_account(pool, account_id);
