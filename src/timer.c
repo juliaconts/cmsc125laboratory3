@@ -6,31 +6,28 @@
 
 // Global simulation clock (shared by all threads)
 volatile int global_tick = 0;
-
 pthread_mutex_t tick_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t tick_changed = PTHREAD_COND_INITIALIZER;
-
 bool simulation_running = true;
+int tick_interval_ms = 100; // 100 ms per tick
 
 // Timer thread increments clock every TICK_INTERVAL_MS
 void *timer_thread(void *arg)
 {
-    while (1)
+    (void)arg;
+    while (simulation_running)
     {
-        usleep(TICK_INTERVAL_MS * 1000); // Sleep to simulate a tick
+        usleep(tick_interval_ms * 1000);
+
         pthread_mutex_lock(&tick_lock);
 
-        if (!simulation_running)
-        {
-            pthread_cond_broadcast(&tick_changed); // Wake waiting
-            pthread_mutex_unlock(&tick_lock);
-            break;
-        }
-
         global_tick++;
+
         pthread_cond_broadcast(&tick_changed);
+
         pthread_mutex_unlock(&tick_lock);
     }
+
     return NULL;
 }
 
