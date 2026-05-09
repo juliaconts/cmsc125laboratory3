@@ -1,5 +1,10 @@
-# Laboratory 3: Concurrent Banking
-By: Junel O. Arellano & Julia Louise M. Contreras
+# CMSC 125 Lab 3: Concurrent Banking
+
+## Group Members
+- Junel O. Arellano
+- Julia Louise M. Contreras
+
+## Description
 
 ## Compilation and usage instructions
 
