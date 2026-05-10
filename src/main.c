@@ -20,6 +20,8 @@ Transaction txs[256]; // global array to hold transactions
 int tx_count = 0;
 void *transaction_runner(void *arg);
 
+int tick_interval_ms = 100;
+
 // CLI parser
 void parse_args(int argc, char *argv[])
 {
@@ -191,7 +193,6 @@ int load_transactions(const char *filename, Transaction *txs, int *count)
 int main(int argc, char *argv[])
 {
     parse_args(argc, argv);
-    extern int tick_interval_ms;
     tick_interval_ms = config.tick_ms;
 
     // init bank

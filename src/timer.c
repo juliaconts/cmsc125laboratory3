@@ -2,32 +2,44 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdbool.h>
 #include "timer.h"
 
 // Global simulation clock (shared by all threads)
 volatile int global_tick = 0;
+
 pthread_mutex_t tick_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t tick_changed = PTHREAD_COND_INITIALIZER;
-bool simulation_running = true;
-int tick_interval_ms = 100; // 100 ms per tick
 
-// Timer thread increments clock every TICK_INTERVAL_MS
+bool simulation_running = true;
+
+// Timer thread increments clock
 void *timer_thread(void *arg)
 {
-    (void)arg;
-    while (simulation_running)
+    (void)arg; // silence the "unused parameter" warning
+
+    // Fetch the tick interval parsed from the command line in main.c
+    extern int tick_interval_ms; 
+
+    while (1) 
     {
-        usleep(tick_interval_ms * 1000);
+        // Sleep outside the lock so we don't freeze the whole bank
+        usleep(tick_interval_ms * 1000); 
 
         pthread_mutex_lock(&tick_lock);
 
+        // Check the condition safely INSIDE the lock
+        if (!simulation_running)
+        {
+            pthread_cond_broadcast(&tick_changed);
+            pthread_mutex_unlock(&tick_lock);
+            break; // Exit the loop safely
+        }
+
         global_tick++;
-
-        pthread_cond_broadcast(&tick_changed);
-
+        pthread_cond_broadcast(&tick_changed); // Wake waiting transactions
         pthread_mutex_unlock(&tick_lock);
     }
-
     return NULL;
 }
 
