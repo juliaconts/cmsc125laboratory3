@@ -226,8 +226,11 @@ int main(int argc, char *argv[])
         pthread_join(threads[i], NULL);
 
     // stop timer
+    pthread_mutex_lock(&tick_lock);     
     simulation_running = false;
     pthread_cond_broadcast(&tick_changed);
+    pthread_mutex_unlock(&tick_lock);   
+    
     pthread_join(timer, NULL);
 
     // cleanup
